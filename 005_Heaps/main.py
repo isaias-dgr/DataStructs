@@ -44,7 +44,6 @@ class HeapTest(TestCase):
             (40, [61,46,38,40,35,8,9,28]),
         ]
         for input, expected in inputs_expected:
-            print(f"\ntest {input} - {self.heap.array}")
             output = self.heap.add(input)
             
             self.assertEqual(output, expected, f"😭 {input}")
