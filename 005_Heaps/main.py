@@ -1,14 +1,15 @@
 from unittest import  TestCase, skip, main as runtest
 
 class Heap:
-    
+    ## 😂 Will be a better example if the array struct been static you can try with rust and go
     def __init__(self):
         self.array = list()
-        self.last_index = len(self.array)
+        self.last_index = -1
 
     def add(self, value):
         self.array.append(value)
         
+        self.last_index += 1 
         current = len(self.array) - 1
         parent = (current-1) // 2
         
@@ -22,9 +23,32 @@ class Heap:
         return self.array
         
     def remove(self):
-        ...
+        if self.last_index == -1:
+            return None
+        
+        result =  self.array[0]
+        self.array[0] = self.array[self.last_index]
+        self.array[self.last_index] = None
+        self.last_index -= 1
 
+        i = 0
+        while i <= self.last_index:
+            swap = i
+            if (2*i)+1 <=  self.last_index and (self.array[swap] < self.array[(2*i)+1]):
+                swap = (2*i)+1
 
+            if (2*i)+2 <=  self.last_index and (self.array[swap] < self.array[(2*i)+2]):
+                swap = (2*i)+2
+
+            if i != swap:
+                temp = self.array[i]
+                self.array[i] = self.array[swap]
+                self.array[swap] = temp
+                i = swap
+            else: 
+                break
+
+        return result
 
 class HeapTest(TestCase):
     
@@ -45,8 +69,19 @@ class HeapTest(TestCase):
         ]
         for input, expected in inputs_expected:
             output = self.heap.add(input)
-            
             self.assertEqual(output, expected, f"😭 {input}")
 
+    def test_remove_values(self):
+        inputs_expected = [46,35,9,28,61,8,38,40]
+        for input in inputs_expected:
+            output = self.heap.add(input)
+        
+        outputs_expected = [61, 46, 40, 38, 35, 28, 9, 8]
+        # this is more intersting with not arrays dinamics
+        for expected in outputs_expected:
+            output = self.heap.remove()
+            self.assertEqual(output, expected, f"😭 output: {output} expected: {expected}")
+
+        
 if __name__=="__main__":
     runtest()
