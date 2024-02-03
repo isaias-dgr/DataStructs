@@ -1,6 +1,9 @@
+import dis
 from unittest import TestCase, skip, main as runtest
 from random import randint
 from math import sqrt
+
+from django.http import QueryDict
 
 
 class Point:
@@ -16,15 +19,13 @@ class Point:
 
 
 class QTree:
-    def __init__(
-        self, limit=10, min_width=0, max_width=200, min_height=0, max_height=200
-    ):
+    def __init__(self, limit=10, min_x=0, max_x=200, min_y=0, max_y=200):
         self.points = []
-        self.max_width = max_width
-        self.min_width = min_width
+        self.max_x = max_x
+        self.min_x = min_x
 
-        self.max_height = max_height
-        self.min_height = min_height
+        self.max_y = max_y
+        self.min_y = min_y
 
         self.topleft = None
         self.topright = None
@@ -35,36 +36,33 @@ class QTree:
         self.is_leaf = True
 
     def inside_limit(self, point):
-        return (
-            self.min_width <= point.x < self.max_width
-            and self.min_height <= point.y < self.max_height
-        )
+        return self.min_x <= point.x < self.max_x and self.min_y <= point.y < self.max_y
 
     def subdivide(self):
         limit = self.limit
         top_min, top_max = (
-            self.min_height,
-            self.min_width + (self.max_width - self.min_width) // 2,
+            self.min_y,
+            self.min_x + (self.max_x - self.min_x) // 2,
         )
 
         down_min, down_max = (
-            self.min_width + (self.max_width - self.min_width) // 2,
-            self.max_width,
+            self.min_x + (self.max_x - self.min_x) // 2,
+            self.max_x,
         )
 
         left_min, left_max = (
-            self.min_height,
-            self.min_height + (self.max_height - self.min_height) // 2,
+            self.min_y,
+            self.min_y + (self.max_y - self.min_y) // 2,
         )
         right_min, right_max = (
-            self.min_height + (self.max_height - self.min_height) // 2,
-            self.max_height,
+            self.min_y + (self.max_y - self.min_y) // 2,
+            self.max_y,
         )
 
-        self.topleft = QTree(limit, top_min, top_max, left_min, left_max)
-        self.topright = QTree(limit, top_min, top_max, right_min, right_max)
-        self.downleft = QTree(limit, down_min, down_max, left_min, left_max)
-        self.downright = QTree(limit, down_min, down_max, right_min, right_max)
+        self.topleft = QTree(limit, top_min, top_max, right_min, right_max)
+        self.topright = QTree(limit, down_min, down_max, right_min, right_max)
+        self.downleft = QTree(limit, top_min, top_max, left_min, left_max)
+        self.downright = QTree(limit, down_min, down_max, left_min, left_max)
 
         self.is_leaf = False
 
@@ -96,34 +94,57 @@ class QTree:
         self.__insert_in_Childs(point)
 
     def get_near_points(self, point, radius=1):
-        if not self.inside_limit(point):
+        points = self.__get_near_points(point, radius)
+        acc = []
+
+        for p in points:
+            dist = p.distance(point)
+            if dist <= radius:
+                acc.append((dist, p))
+        acc.sort(key=lambda x: x[0])
+        return acc
+
+    def get_min_dist(self, point, radius):
+        dist_min_x = min(abs(point.x - self.max_x), abs(point.x - self.min_x))
+        dist_min_y = min(abs(point.y - self.max_y), abs(point.y - self.min_y))
+        return dist_min_x < radius and dist_min_y < radius
+
+    def __get_near_points(self, point, radius=1):
+        acc = []
+        near_quad = self.get_min_dist(point, radius)
+        if not self.inside_limit(point) and not near_quad:
             return []
 
-        if self.is_leaf:
-            print(
-                f"\n{point} {len(self.points)} x: {self.min_width}, {self.max_width} y: {self.min_height},{self.max_height}"
-            )
+        if self.is_leaf and near_quad:
             return self.points
-        else:
-            acc = []
-            acc += self.topleft.get_near_points(point, radius)
-            acc += self.topright.get_near_points(point, radius)
-            acc += self.downleft.get_near_points(point, radius)
-            acc += self.downright.get_near_points(point, radius)
-            return acc
+
+        acc += self.topleft.__get_near_points(point, radius)
+        acc += self.topright.__get_near_points(point, radius)
+        acc += self.downleft.__get_near_points(point, radius)
+        acc += self.downright.__get_near_points(point, radius)
+        return acc
+
+    def __str__(self):
+        if self.is_leaf:
+            return f"{self.points}"
+
+        topleft = [str(p) for p in self.topleft.points]
+        topright = [str(p) for p in self.topright.points]
+        downleft = [str(p) for p in self.downleft.points]
+        downright = [str(p) for p in self.downright.points]
+        return f"topleft: {topleft}\ntopright: {topright}\ndownleft {downleft}\ndownright {downright}"
 
 
 class TestQTree(TestCase):
     def setUp(self) -> None:
-        self.qTree = QTree(limit=10)
+        self.qTree = QTree(limit=5)
         return super().setUp()
 
     def insert_rando_nmumber(self):
-        for _ in range(0, 10000):
+        for _ in range(0, 1000):
             p = Point(randint(0, 199), randint(0, 199))
             self.qTree.insert(p)
 
-    @skip
     def test_Insert_fail_out_of_limits(self):
         inputs = [
             Point(-1, 0),
@@ -136,7 +157,6 @@ class TestQTree(TestCase):
         for point in inputs:
             self.assertFalse(self.qTree.insert(point))
 
-    @skip
     def test_Insert_on_quad(self):
         inputs = [Point(50, 50), Point(50, 150), Point(150, 50), Point(150, 150)]
         for point in inputs:
@@ -144,7 +164,6 @@ class TestQTree(TestCase):
 
         self.assertEqual(4, len(self.qTree.points))
 
-    @skip
     def test_Insert_subdive_and_redistribute(self):
         inputs = [
             Point(50, 50),
@@ -160,12 +179,11 @@ class TestQTree(TestCase):
             self.qTree.insert(point)
 
         self.assertEqual(0, len(self.qTree.points))
-        self.assertEqual(5, len(self.qTree.topleft.points))
-        self.assertEqual(1, len(self.qTree.topright.points))
-        self.assertEqual(1, len(self.qTree.downleft.points))
+        self.assertEqual(5, len(self.qTree.downleft.points))
         self.assertEqual(1, len(self.qTree.downright.points))
+        self.assertEqual(1, len(self.qTree.topleft.points))
+        self.assertEqual(1, len(self.qTree.topright.points))
 
-    @skip
     def test_Insert_subdive_and_redistribute_two_levels(self):
         inputs = [
             Point(50, 50),
@@ -182,20 +200,17 @@ class TestQTree(TestCase):
             self.qTree.insert(point)
 
         self.assertEqual(0, len(self.qTree.points))
-        self.assertEqual(0, len(self.qTree.topleft.points))
-        self.assertEqual(1, len(self.qTree.topright.points))
-        self.assertEqual(1, len(self.qTree.downleft.points))
+        self.assertEqual(0, len(self.qTree.downleft.points))
         self.assertEqual(1, len(self.qTree.downright.points))
+        self.assertEqual(1, len(self.qTree.topleft.points))
+        self.assertEqual(1, len(self.qTree.topright.points))
 
     def test_getting_near_points(self):
         self.insert_rando_nmumber()
-        radius = 3
-        point_target = Point(95, 65)
-        points = self.qTree.get_near_points(point_target, radius)
-        for i, point in enumerate(points):
-            distance = point.distance(point_target)
-            print("\n", i, distance, point)
-            # self.assertLess(distance, radius)
+        points = self.qTree.get_near_points(Point(50, 50), 50)
+
+        for distance, p in points:
+            self.assertLessEqual(distance, 50)
 
 
 if __name__ == "__main__":

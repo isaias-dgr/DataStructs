@@ -21,7 +21,3 @@ def binary_search(target: int, set_data: List[int]) -> bool:
 if __name__ == "__main__":
     set_test = list(range(0, 10))
     target_value = randint(1, 200)
-    # target_value = 7
-
-    print(f"target: {target_value} set_test: {set_test}")
-    print(binary_search(target_value, set_test))
