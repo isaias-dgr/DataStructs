@@ -3,8 +3,6 @@ from unittest import TestCase, skip, main as runtest
 from random import randint
 from math import sqrt
 
-from django.http import QueryDict
-
 
 class Point:
     def __init__(self, x, y):
